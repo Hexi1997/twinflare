@@ -109,10 +109,38 @@ async function cfFetch(url, options = {}) {
       ...options.headers,
     },
   })
-  const data = await res.json()
-  if (!data.success) {
+
+  const text = await res.text()
+
+  if (!res.ok) {
+    let detail = text.slice(0, 300)
+    try {
+      const err = JSON.parse(text)
+      detail = JSON.stringify(err.errors ?? err)
+    } catch {}
+    throw new Error(`CF API ${res.status} at ${url}: ${detail}`)
+  }
+
+  // Some CF endpoints (e.g. Vectorize v2 upsert) return NDJSON or a non-standard
+  // JSON body; parse the first non-empty line to stay robust.
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    const firstLine = text.split('\n').find(l => l.trim())
+    if (!firstLine) throw new Error(`CF API returned empty body at ${url}`)
+    try {
+      data = JSON.parse(firstLine)
+    } catch {
+      throw new Error(`CF API returned non-JSON at ${url}: ${text.slice(0, 200)}`)
+    }
+  }
+
+  // Standard CF API wrapper uses { success, errors }; Vectorize v2 upsert uses { mutationId }
+  if ('success' in data && !data.success) {
     throw new Error(`CF API error at ${url}: ${JSON.stringify(data.errors)}`)
   }
+
   return data
 }
 
