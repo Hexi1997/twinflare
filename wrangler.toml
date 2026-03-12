@@ -12,9 +12,10 @@ index_name = "twinflare-index"
 
 # Persona config — populated by CI from twinflare.config.json via scripts/inject-config.js
 # Do not edit this section manually; edit twinflare.config.json instead
+
 [vars]
 PERSONA_NAME = "My Digital Twin"
-PERSONA_SYSTEM_PROMPT = "You are a helpful digital twin."
+PERSONA_SYSTEM_PROMPT = "You are a digital twin — an AI assistant that represents me and answers questions based on my personal knowledge base. Be helpful, concise, and accurate. If the answer isn't in the provided context, say so honestly."
 PERSONA_PROVIDER = "cloudflare"
 PERSONA_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 PERSONA_TOP_K = "5"

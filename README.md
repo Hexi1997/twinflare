@@ -2,7 +2,7 @@
 
 **Your Digital Twin, Powered by Cloudflare**
 
-TwinFlare 是一个 Cloudflare-native 个人 AI 分身平台。  
+TwinFlare 是一个 Cloudflare-native 个人 AI 分身平台。
 将你的 Markdown 知识文档放入 GitHub 仓库，push 后自动向量化并部署，通过 API 与你的数字分身对话。
 
 **完全无服务器 · 数据在你自己的 Cloudflare 账户 · 零本地工具链**
@@ -16,9 +16,9 @@ GitHub Repo (docs/*.md + twinflare.config.json)
     │
     │  git push → GitHub Actions
     ├─ Job 1: wrangler deploy (Worker + secrets + Vectorize)
-    └─ Job 2: POST /sync → 切片 → Workers AI 嵌入 → Vectorize
+    └─ Job 2: 切片 → CF Workers AI REST API 嵌入 → CF Vectorize REST API
                                         ↓
-                            外部应用 → /api/chat → RAG → Claude / GPT / Gemini / Workers AI
+                            外部应用 → /api/chat → RAG → Claude / GPT / Gemini / OpenRouter / Workers AI
 ```
 
 **用到的 Cloudflare 服务**：Workers · Vectorize · Workers AI（嵌入固定使用 `bge-base-en-v1.5`）
@@ -35,14 +35,13 @@ GitHub Repo (docs/*.md + twinflare.config.json)
 
 | Secret | 说明 |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（需 Workers/Vectorize 权限） |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（需 Workers / Vectorize / AI 权限） |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
-| `WORKER_URL` | Worker 部署后的 URL（首次部署后从 Actions 日志获取，再次填写） |
-| `SYNC_SECRET` | 自定义随机字符串，用于 /sync 接口鉴权 |
 | `PUBLIC_API_TOKEN` | 自定义随机字符串，用于公开 API 鉴权 |
 | `ANTHROPIC_API_KEY` | （可选）使用 Claude 时填写 |
 | `OPENAI_API_KEY` | （可选）使用 GPT 时填写 |
 | `GOOGLE_API_KEY` | （可选）使用 Gemini 时填写 |
+| `OPENROUTER_API_KEY` | （可选）使用 OpenRouter 时填写 |
 
 ### 3. 配置 Persona
 
@@ -61,7 +60,7 @@ GitHub Repo (docs/*.md + twinflare.config.json)
 }
 ```
 
-支持的 `provider`：`cloudflare`（免费，无需 API Key）· `openai` · `anthropic` · `google`
+支持的 `provider`：`cloudflare`（免费，无需 API Key）· `openai` · `anthropic` · `google` · `openrouter`
 
 ### 4. 添加知识文档
 
@@ -102,7 +101,7 @@ curl -X POST https://your-worker.workers.dev/api/chat \
   }'
 ```
 
-响应为 [Vercel AI SDK Data Stream](https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol) 格式，可直接对接 `useChat` hook。
+响应为纯文本流（`Content-Type: text/plain`），对接 Vercel AI SDK `useChat` 时需指定 `streamProtocol: 'text'`。
 
 ### 语义检索
 
@@ -147,13 +146,12 @@ twinflare/
 │   │   ├── vectorize.ts      # Vectorize CRUD
 │   │   └── llm.ts            # LLM provider 路由
 │   └── routes/
-│       ├── sync.ts           # POST /sync
 │       ├── chat.ts           # POST /api/chat
 │       ├── search.ts         # POST /api/search
 │       └── persona.ts        # GET /api/persona
 ├── scripts/
 │   ├── inject-config.js      # 将 twinflare.config.json 注入 wrangler.toml
-│   └── sync.js               # GitHub Actions 文档同步脚本
+│   └── sync.js               # GitHub Actions 文档同步（直接调 CF REST API）
 ├── .github/workflows/
 │   └── deploy.yml            # 部署 + 同步流水线
 ├── docs/                     # 你的知识文档（.md 文件）

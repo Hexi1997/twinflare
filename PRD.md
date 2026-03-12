@@ -5,7 +5,7 @@
 ## 1. 产品定位
 
 - **名称**：TwinFlare — Your Digital Twin, Powered by Cloudflare
-- **定位**：面向开发者的 Cloudflare-native 个人 AI 分身平台，以 GitHub 仓库为知识源，通过 GitHub Actions 自动同步向量索引，纯 API 对外服务，无 Admin UI
+- **定位**：面向开发者的 Cloudflare-native 个人 AI 分身平台，以 GitHub 仓库为知识源，通过 GitHub Actions 自动同步向量索引，通过 API 对外提供服务
 - **核心价值**：零服务器、知识文档 Git 版本管理、自动向量化流水线、隐私自主
 
 ---
@@ -49,7 +49,8 @@ flowchart TD
     Repo --> Actions
     Secrets -.->|"wrangler secret put"| Worker
     Actions -->|"Job1: wrangler deploy"| Worker
-    Actions -->|"Job2: POST /sync + SYNC_SECRET"| Worker
+    Actions -->|"Job2: CF REST API"| Vectorize
+    Actions -->|"Job2: CF REST API"| WorkersAI
     ExternalApp -->|"Bearer Token"| Worker
     Worker --> Vectorize
     Worker --> WorkersAI
@@ -86,7 +87,7 @@ your-twinflare-repo/
 ├── twinflare.config.json        # Persona 非敏感配置（随代码版本管理）
 ├── scripts/
 │   ├── inject-config.js         # CI 用：将 config 注入 wrangler.toml [vars]
-│   └── sync.js                  # CI 用：git diff → POST /sync
+│   └── sync.js                  # CI 用：git diff → CF REST API 直写 Vectorize
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml           # 部署 + 同步流水线
@@ -133,10 +134,8 @@ Worker 运行时（LLM provider 初始化）
 
 | Secret 名称 | 是否必填 | 用途 |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | 必填 | wrangler 鉴权（Workers / Vectorize 权限） |
-| `CLOUDFLARE_ACCOUNT_ID` | 必填 | Cloudflare 账户 ID |
-| `WORKER_URL` | 必填 | 已部署 Worker 的 URL，供 sync job 调用（首次部署后从 Actions 日志获取） |
-| `SYNC_SECRET` | 必填 | /sync 接口鉴权，deploy job 写入 Worker + sync job 直接使用 |
+| `CLOUDFLARE_API_TOKEN` | 必填 | wrangler 鉴权 + sync job 直调 CF REST API（Workers / Vectorize / AI 权限） |
+| `CLOUDFLARE_ACCOUNT_ID` | 必填 | Cloudflare 账户 ID（wrangler + sync job 共用） |
 | `PUBLIC_API_TOKEN` | 必填 | 公开 API Bearer Token，deploy job 写入 Worker |
 | `OPENAI_API_KEY` | 可选 | provider = openai 时填写 |
 | `ANTHROPIC_API_KEY` | 可选 | provider = anthropic 时填写 |
@@ -161,7 +160,6 @@ Worker 运行时（LLM provider 初始化）
    → 创建或更新 Worker（首次自动创建）
 
 4. 写入所有 secrets：
-   echo $SYNC_SECRET       | wrangler secret put SYNC_SECRET
    echo $PUBLIC_API_TOKEN  | wrangler secret put PUBLIC_API_TOKEN
    echo $ANTHROPIC_API_KEY | wrangler secret put ANTHROPIC_API_KEY  # 按需
    ...
@@ -174,14 +172,15 @@ Worker 运行时（LLM provider 初始化）
    → 收集 upserted（新增/修改）+ deleted 文件列表
    → 首次提交（无 HEAD~1）则全量同步所有 docs/ 文件
 
-2. 读取所有 upserted 文件内容
+2. 对每个 deleted 文件：
+   POST CF Vectorize REST API /get-by-ids  → 取 manifest（含 chunkCount）
+   POST CF Vectorize REST API /delete-by-ids
 
-3. POST $WORKER_URL/sync
-   Headers: Authorization: Bearer $SYNC_SECRET
-   Body: {
-     files:   [{ path: "docs/about.md", content: "..." }],
-     deleted: ["docs/old-post.md"]
-   }
+3. 对每个 upserted 文件：
+   先执行删除（幂等）
+   chunkMarkdown(content) → chunks[]
+   POST CF Workers AI REST API (@cf/baai/bge-base-en-v1.5) → embeddings[]
+   POST CF Vectorize REST API /upsert（ndjson：manifest + chunk vectors）
 
 4. 打印同步结果（processed / deleted / totalChunks）
 ```
@@ -200,11 +199,7 @@ Worker 运行时（LLM provider 初始化）
 | `POST` | `/api/search` | 纯语义检索，返回匹配 chunks |
 | `GET` | `/api/persona` | 获取 Persona 公开信息（name / provider / model） |
 
-### 内部 API（`Authorization: Bearer <SYNC_SECRET>`）
-
-| Method | Path | 描述 |
-|---|---|---|
-| `POST` | `/sync` | 文档增量同步（upsert + delete） |
+> 文档同步不经过 Worker HTTP 接口，由 `scripts/sync.js` 直接调用 Cloudflare REST API 完成。
 
 ---
 
@@ -228,24 +223,22 @@ POST /api/chat  { messages: [...] }
 
 ---
 
-## 10. /sync 处理逻辑
+## 10. 同步处理逻辑（scripts/sync.js）
+
+`sync.js` 直接通过 Cloudflare REST API 读写 Vectorize，不依赖 Worker HTTP 接口。
 
 ```
-验证 SYNC_SECRET → 401 if invalid
-
 对每个 deleted 文件：
-  1. getByIds([manifestId(filePath)])  → 取 chunkCount
-  2. deleteByIds([manifestId, chunkId-0, ..., chunkId-N])
+  1. POST /vectorize/v2/indexes/{name}/get-by-ids  → 取 manifest（含 chunkCount）
+  2. POST /vectorize/v2/indexes/{name}/delete-by-ids（manifest + all chunks）
 
 对每个 upserted 文件：
   1. 先执行上述删除（幂等更新）
   2. chunkMarkdown(content) → chunks[]
-  3. embedBatch(AI, texts)  → embeddings[]
-  4. Vectorize.upsert([manifest, ...chunkVectors])
+  3. POST /ai/run/@cf/baai/bge-base-en-v1.5  → embeddings[]（分批，每批 50 条）
+  4. POST /vectorize/v2/indexes/{name}/upsert（ndjson 格式）
      manifest  id = "m::{encodedPath}"       metadata = { type, filePath, chunkCount, docTitle }
      chunk     id = "c::{encodedPath}::{i}"  metadata = { type, filePath, chunkIndex, docTitle, text }
-
-返回 { ok, processed, deleted, totalChunks, errors? }
 ```
 
 **Manifest 模式**（无 KV 的幂等删除方案）：每个文件写入一个零向量 manifest，存储 `chunkCount`；删除时通过确定性 ID 精确清理，无需扫描。
@@ -295,7 +288,7 @@ POST /api/chat  { messages: [...] }
 ## 13. 非功能需求
 
 - **部署方式**：完全由 GitHub Actions 驱动，包括 Worker 首次创建、资源初始化、secrets 写入；用户无需本地 wrangler
-- **幂等性**：`/sync` 重复推送同一文件不产生重复向量
+- **幂等性**：重复推送同一文件不产生重复向量（先删后写，manifest 记录 chunkCount）
 - **向量容量**：Vectorize 免费版 5 万向量（768 维/向量，约 65 个 chunks）；付费版无限制
 - **延迟目标**：Chat API P90 < 3s，流式首 token < 1s
 - **错误格式**：统一 `{ error: { code: string, message: string } }`
@@ -307,6 +300,6 @@ POST /api/chat  { messages: [...] }
 
 | Phase | 内容 | 状态 |
 |---|---|---|
-| Phase 1 — Core Worker | Hono.js 骨架、/sync、RAG Chat、/api/search、Bearer Token 鉴权 | ✅ 已完成 |
-| Phase 2 — GitHub Actions | deploy.yml、inject-config.js、sync.js、增量 diff 逻辑 | ✅ 已完成 |
+| Phase 1 — Core Worker | Hono.js 骨架、RAG Chat、/api/search、Bearer Token 鉴权 | ✅ 已完成 |
+| Phase 2 — GitHub Actions | deploy.yml、inject-config.js、sync.js（直调 CF REST API）、增量 diff 逻辑 | ✅ 已完成 |
 | Phase 3 — Polish | README 快速上手文档、mock docs 示例 | ✅ 已完成 |

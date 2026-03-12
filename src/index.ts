@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { Env } from './types'
-import syncRoute from './routes/sync'
 import chatRoute from './routes/chat'
 import searchRoute from './routes/search'
 import personaRoute from './routes/persona'
@@ -12,9 +11,6 @@ app.use('*', cors({ origin: '*' }))
 
 // Health check
 app.get('/', c => c.json({ name: c.env.PERSONA_NAME, status: 'ok' }))
-
-// Internal sync endpoint (authenticated by SYNC_SECRET)
-app.route('/sync', syncRoute)
 
 // Public API endpoints (authenticated by PUBLIC_API_TOKEN)
 app.route('/api/chat', chatRoute)

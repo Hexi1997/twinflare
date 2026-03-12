@@ -26,9 +26,11 @@ jobs:
 
       - name: Create Vectorize index (idempotent)
         run: |
-          npx wrangler vectorize create twinflare-index \
+          output=$(npx wrangler vectorize create twinflare-index \
             --dimensions=768 \
-            --metric=cosine 2>&1 | grep -v "already exists" || true
+            --metric=cosine 2>&1) \
+            || echo "$output" | grep -qi "already exist" \
+            || { echo "$output"; exit 1; }
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -41,7 +43,6 @@ jobs:
 
       - name: Set Worker secrets
         run: |
-          echo "${{ secrets.SYNC_SECRET }}"       | npx wrangler secret put SYNC_SECRET
           echo "${{ secrets.PUBLIC_API_TOKEN }}"  | npx wrangler secret put PUBLIC_API_TOKEN
           if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
             echo "${{ secrets.OPENAI_API_KEY }}"    | npx wrangler secret put OPENAI_API_KEY
@@ -51,6 +52,9 @@ jobs:
           fi
           if [ -n "${{ secrets.GOOGLE_API_KEY }}" ]; then
             echo "${{ secrets.GOOGLE_API_KEY }}"    | npx wrangler secret put GOOGLE_API_KEY
+          fi
+          if [ -n "${{ secrets.OPENROUTER_API_KEY }}" ]; then
+            echo "${{ secrets.OPENROUTER_API_KEY }}" | npx wrangler secret put OPENROUTER_API_KEY
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -100,8 +104,8 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: node scripts/sync.js
         env:
-          WORKER_URL: ${{ secrets.WORKER_URL }}
-          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: No doc changes
         if: steps.changes.outputs.changed != 'true'

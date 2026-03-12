@@ -3,7 +3,7 @@ import { streamText } from 'ai'
 import type { Env, ChatMessage } from '../types'
 import { publicAuth } from '../middleware/auth'
 import { searchSimilar } from '../lib/vectorize'
-import { getExternalLanguageModel } from '../lib/llm'
+import { getLanguageModel } from '../lib/llm'
 
 interface ChatRequestBody {
   messages: ChatMessage[]
@@ -47,11 +47,7 @@ chat.post('/', publicAuth, async c => {
   const systemPrompt = `${c.env.PERSONA_SYSTEM_PROMPT}${contextBlock}`
 
   try {
-    if (c.env.PERSONA_PROVIDER === 'cloudflare') {
-      return streamCloudflare(c.env, systemPrompt, messages, temperature)
-    }
-
-    const model = getExternalLanguageModel(c.env)
+    const model = getLanguageModel(c.env)
     const result = streamText({
       model,
       system: systemPrompt,
@@ -67,32 +63,5 @@ chat.post('/', publicAuth, async c => {
     return c.json({ error: { code: 'LLM_ERROR', message } }, 500)
   }
 })
-
-async function streamCloudflare(
-  env: Env,
-  systemPrompt: string,
-  messages: ChatMessage[],
-  temperature: number,
-): Promise<Response> {
-  const aiMessages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...messages.map(m => ({ role: m.role, content: m.content })),
-  ]
-
-  // Cast to a known chat model to satisfy the overloaded run() signature
-  type DefaultChatModel = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
-  const response = await env.AI.run(
-    env.PERSONA_MODEL as DefaultChatModel,
-    { messages: aiMessages, stream: true, temperature },
-  )
-
-  return new Response(response as ReadableStream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*',
-    },
-  })
-}
 
 export default chat

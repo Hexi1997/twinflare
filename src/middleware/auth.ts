@@ -14,11 +14,3 @@ export async function publicAuth(c: Context<{ Bindings: Env }>, next: Next) {
   }
   await next()
 }
-
-export async function syncAuth(c: Context<{ Bindings: Env }>, next: Next) {
-  const token = extractBearer(c.req.raw)
-  if (!token || token !== c.env.SYNC_SECRET) {
-    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Invalid or missing sync secret' } }, 401)
-  }
-  await next()
-}

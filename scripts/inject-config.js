@@ -38,8 +38,8 @@ PERSONA_TEMPERATURE = ${JSON.stringify(String(persona.temperature ?? 0.7))}`
 
 let toml = fs.readFileSync(WRANGLER_FILE, 'utf8')
 
-// Replace existing [vars] block (everything from [vars] to the next section or EOF)
-toml = toml.replace(/^\[vars\][\s\S]*?(?=^\[(?!vars\b)|\z)/m, '')
+// Replace existing [vars] block (everything from [vars] to EOF)
+toml = toml.replace(/\n*\[vars\][\s\S]*$/, '')
 toml = toml.trimEnd() + '\n\n' + newVars + '\n'
 
 fs.writeFileSync(WRANGLER_FILE, toml)
