@@ -1,0 +1,21 @@
+name = "twinflare"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "twinflare-index"
+
+# Persona config — populated by CI from twinflare.config.json via scripts/inject-config.js
+# Do not edit this section manually; edit twinflare.config.json instead
+[vars]
+PERSONA_NAME = "My Digital Twin"
+PERSONA_SYSTEM_PROMPT = "You are a helpful digital twin."
+PERSONA_PROVIDER = "cloudflare"
+PERSONA_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+PERSONA_TOP_K = "5"
+PERSONA_TEMPERATURE = "0.7"
