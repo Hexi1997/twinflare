@@ -162,19 +162,15 @@ async function embedBatch(texts) {
 
 const VECTORIZE_BASE = `${CF_API}/vectorize/v2/indexes/${INDEX_NAME}`
 
+// Vectorize v2 REST API has no get-by-ids endpoint; delete the manifest + a safe
+// range of chunk IDs (delete-by-ids is idempotent for non-existent IDs).
+const MAX_CHUNKS_PER_FILE = 500
+
 async function deleteVectorsForFile(filePath) {
-  const mId = manifestId(filePath)
-  const data = await cfFetch(`${VECTORIZE_BASE}/get-by-ids`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids: [mId] }),
-  })
-
-  const manifest = data.result?.vectors?.[0]
-  if (!manifest) return
-
-  const chunkCount = manifest.metadata?.chunkCount ?? 0
-  const ids = [mId, ...Array.from({ length: chunkCount }, (_, i) => chunkId(filePath, i))]
+  const ids = [
+    manifestId(filePath),
+    ...Array.from({ length: MAX_CHUNKS_PER_FILE }, (_, i) => chunkId(filePath, i)),
+  ]
   await cfFetch(`${VECTORIZE_BASE}/delete-by-ids`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

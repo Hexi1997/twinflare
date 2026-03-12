@@ -63,18 +63,13 @@ export async function upsertFile(
   await vectorize.upsert([manifest, ...vectors])
 }
 
+const MAX_CHUNKS_PER_FILE = 500
+
 /** Remove all vectors (manifest + chunks) for a file. */
 export async function deleteFile(vectorize: VectorizeIndex, filePath: string): Promise<void> {
-  const mId = manifestId(filePath)
-  const manifests = await vectorize.getByIds([mId])
-  const manifest = manifests[0]
-
-  if (!manifest) return
-
-  const chunkCount = (manifest.metadata?.chunkCount as number | undefined) ?? 0
   const ids = [
-    mId,
-    ...Array.from({ length: chunkCount }, (_, i) => chunkId(filePath, i)),
+    manifestId(filePath),
+    ...Array.from({ length: MAX_CHUNKS_PER_FILE }, (_, i) => chunkId(filePath, i)),
   ]
   await vectorize.deleteByIds(ids)
 }
