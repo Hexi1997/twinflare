@@ -166,23 +166,28 @@ const VECTORIZE_BASE = `${CF_API}/vectorize/v2/indexes/${INDEX_NAME}`
 // range of chunk IDs (delete-by-ids is idempotent for non-existent IDs).
 const MAX_CHUNKS_PER_FILE = 500
 
+const DELETE_BATCH_SIZE = 100
+
 async function deleteVectorsForFile(filePath) {
   const ids = [
     manifestId(filePath),
     ...Array.from({ length: MAX_CHUNKS_PER_FILE }, (_, i) => chunkId(filePath, i)),
   ]
-  await cfFetch(`${VECTORIZE_BASE}/delete-by-ids`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids }),
-  })
+  for (let i = 0; i < ids.length; i += DELETE_BATCH_SIZE) {
+    const batch = ids.slice(i, i + DELETE_BATCH_SIZE)
+    await cfFetch(`${VECTORIZE_BASE}/delete_by_ids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: batch }),
+    })
+  }
 }
 
 async function upsertFileVectors(filePath, content) {
   const chunks = chunkMarkdown(content, filePath)
 
   // Always delete first for idempotent upsert
-  await deleteVectorsForFile(filePath)
+  await deleteVectorsForFile(filePath).catch(console.error)
 
   if (chunks.length === 0) return 0
 
@@ -295,7 +300,7 @@ async function main() {
 
   for (const filePath of deleted) {
     try {
-      await deleteVectorsForFile(filePath)
+      await deleteVectorsForFile(filePath).catch(console.error)
       deletedCount++
       console.log(`  ✓ deleted ${filePath}`)
     } catch (err) {
