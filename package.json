@@ -13,7 +13,7 @@
     "@ai-sdk/openai": "^3.0.41",
     "ai": "^6.0.116",
     "hono": "^4.12.7",
-    "workers-ai-provider": "^0.2.0"
+    "workers-ai-provider": "^3.1.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260312.1",
