@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "node scripts/inject-config.js && wrangler dev",
+    "deploy": "node scripts/inject-config.js && wrangler deploy",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

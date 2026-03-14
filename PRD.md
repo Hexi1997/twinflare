@@ -69,7 +69,7 @@ flowchart TD
 |---|---|---|
 | **Workers** | API 层，所有业务逻辑（Hono.js） | Persona 配置烧入 `[vars]`，读取零延迟 |
 | **Vectorize** | 文档 chunk 向量索引 | 唯一持久化存储，按 `filePath` metadata 增量更新 |
-| **Workers AI** | 嵌入模型 | 固定使用 `@cf/baai/bge-base-en-v1.5`，768 维 |
+| **Workers AI** | 嵌入模型 | 固定使用 `@cf/baai/bge-m3`，1024 维 |
 
 > **R2 和 KV 均不需要**。原始文档在 GitHub，Persona 配置在 Worker vars，向量在 Vectorize。
 
@@ -153,7 +153,7 @@ Worker 运行时（LLM provider 初始化）
 1. node scripts/inject-config.js
    → 读取 twinflare.config.json，将 persona 字段写入 wrangler.toml [vars]
 
-2. wrangler vectorize create twinflare-index --dimensions=768 --metric=cosine
+2. wrangler vectorize create twinflare-vectorize-index --dimensions=1024 --metric=cosine
    → 幂等，已存在则跳过
 
 3. wrangler deploy
@@ -179,7 +179,7 @@ Worker 运行时（LLM provider 初始化）
 3. 对每个 upserted 文件：
    先执行删除（幂等）
    chunkMarkdown(content) → chunks[]
-   POST CF Workers AI REST API (@cf/baai/bge-base-en-v1.5) → embeddings[]
+   POST CF Workers AI REST API (@cf/baai/bge-m3) → embeddings[]
    POST CF Vectorize REST API /upsert（ndjson：manifest + chunk vectors）
 
 4. 打印同步结果（processed / deleted / totalChunks）
@@ -235,7 +235,7 @@ POST /api/chat  { messages: [...] }
 对每个 upserted 文件：
   1. 先执行上述删除（幂等更新）
   2. chunkMarkdown(content) → chunks[]
-  3. POST /ai/run/@cf/baai/bge-base-en-v1.5  → embeddings[]（分批，每批 50 条）
+  3. POST /ai/run/@cf/baai/bge-m3  → embeddings[]（分批，每批 50 条）
   4. POST /vectorize/v2/indexes/{name}/upsert（ndjson 格式）
      manifest  id = "m::{encodedPath}"       metadata = { type, filePath, chunkCount, docTitle }
      chunk     id = "c::{encodedPath}::{i}"  metadata = { type, filePath, chunkIndex, docTitle, text }
@@ -277,7 +277,7 @@ POST /api/chat  { messages: [...] }
 |---|---|
 | Web 框架 | Hono.js v4 |
 | LLM 调用 | Vercel AI SDK v6（`ai` + `@ai-sdk/*`） |
-| 嵌入模型 | Cloudflare Workers AI `@cf/baai/bge-base-en-v1.5` |
+| Embedding 模型 | Cloudflare Workers AI `@cf/baai/bge-m3` |
 | 向量数据库 | Cloudflare Vectorize |
 | 语言 | TypeScript（严格模式） |
 | 构建/部署 | Wrangler v4 |

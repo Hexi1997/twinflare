@@ -35,8 +35,8 @@ chat.post('/', publicAuth, async c => {
     try {
       const results = await searchSimilar(c.env.VECTORIZE, c.env.AI, query, topK)
       contextChunks = results.map(r => `[${r.docTitle}]\n${r.text}`)
-    } catch {
-      // Non-fatal: proceed without context
+    } catch (err) {
+      console.error('[chat] vectorize search failed, proceeding without context:', err)
     }
   }
 

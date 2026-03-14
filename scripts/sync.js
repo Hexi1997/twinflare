@@ -11,7 +11,7 @@
  *   CLOUDFLARE_API_TOKEN   — Cloudflare API token (needs AI and Vectorize write permissions)
  *
  * Optional env vars:
- *   VECTORIZE_INDEX_NAME   — Vectorize index name (default: twinflare-index)
+ *   VECTORIZE_INDEX_NAME   — Vectorize index name (default: twinflare-vectorize-index)
  *   FORCE_FULL_SYNC        — set to "true" to re-index all docs regardless of git diff
  */
 
@@ -19,13 +19,25 @@ const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 
+const CONFIG_FILE = 'twinflare.config.json'
+
+let embeddingConfig = {}
+if (fs.existsSync(CONFIG_FILE)) {
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+    embeddingConfig = config.embedding || {}
+  } catch (err) {
+    console.warn('Warning: failed to read embedding config from twinflare.config.json:', err)
+  }
+}
+
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID
 const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN
-const INDEX_NAME = process.env.VECTORIZE_INDEX_NAME || 'twinflare-index'
+const INDEX_NAME = process.env.VECTORIZE_INDEX_NAME || 'twinflare-vectorize-index'
 const FORCE_FULL_SYNC = process.env.FORCE_FULL_SYNC === 'true'
 const DOCS_DIR = 'docs'
 
-const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5'
+const EMBEDDING_MODEL = embeddingConfig.model
 const EMBEDDING_BATCH_SIZE = 50
 const CF_API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}`
 
@@ -41,7 +53,7 @@ if (!API_TOKEN) {
 // ── Chunker (mirrors src/lib/chunker.ts) ────────────────────────────────────
 
 const MAX_CHUNK_CHARS = 1800
-const MIN_CHUNK_CHARS = 100
+const MIN_CHUNK_CHARS = 40
 
 function chunkMarkdown(content, filePath) {
   const fileName = path.basename(filePath, '.md')
@@ -209,7 +221,7 @@ async function upsertFileVectors(filePath, content) {
 
   const manifest = {
     id: manifestId(filePath),
-    values: new Array(768).fill(0),
+    values: new Array(1024).fill(0),
     metadata: { type: 'manifest', filePath, chunkCount: chunks.length, docTitle },
   }
 

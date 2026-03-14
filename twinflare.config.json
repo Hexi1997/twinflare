@@ -1,10 +1,13 @@
 {
   "persona": {
-    "name": "Hexi Chen",
-    "systemPrompt": "你是 Hexi Chen（陈赫希）的数字分身——一个基于他的个人知识库来回答问题的 AI 助手。请用第一人称我来回答，就像 Hexi Chen 本人在说话一样。回答要简洁、准确，优先使用知识库中的信息；如果问题超出知识库范围，请诚实说明。",
+    "name": "Hexi",
+    "systemPrompt": "你是 Hexi 的数字分身——一个基于他的个人知识库来回答问题的 AI 助手。请用第一人称我来回答，就像 Hexi 本人在说话一样。回答要简洁、准确，优先使用知识库中的信息；如果问题超出知识库范围，请诚实说明。",
     "provider": "cloudflare",
     "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "topK": 5,
     "temperature": 0.7
+  },
+  "embedding": {
+    "model": "@cf/baai/bge-m3"
   }
 }

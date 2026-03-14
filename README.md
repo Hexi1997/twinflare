@@ -16,12 +16,12 @@ GitHub Repo (docs/*.md + twinflare.config.json)
     │
     │  git push → GitHub Actions
     ├─ Job 1: wrangler deploy (Worker + secrets + Vectorize)
-    └─ Job 2: 切片 → CF Workers AI REST API 嵌入 → CF Vectorize REST API
+    └─ Job 2: 切片 → CF Workers AI REST API Embedding → CF Vectorize REST API
                                         ↓
                             外部应用 → /api/chat → RAG → Claude / GPT / Gemini / OpenRouter / Workers AI
 ```
 
-**用到的 Cloudflare 服务**：Workers · Vectorize · Workers AI（嵌入固定使用 `bge-base-en-v1.5`）
+**用到的 Cloudflare 服务**：Workers · Vectorize · Workers AI（Embedding 固定使用 `@cf/baai/bge-m3`）
 
 ---
 
@@ -142,7 +142,7 @@ twinflare/
 │   ├── middleware/auth.ts    # Bearer Token 鉴权
 │   ├── lib/
 │   │   ├── chunker.ts        # Markdown 切片
-│   │   ├── embedder.ts       # Workers AI 嵌入
+│   │   ├── embedder.ts       # Workers AI Embedder
 │   │   ├── vectorize.ts      # Vectorize CRUD
 │   │   └── llm.ts            # LLM provider 路由
 │   └── routes/

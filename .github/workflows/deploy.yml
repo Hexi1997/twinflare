@@ -26,8 +26,8 @@ jobs:
 
       - name: Create Vectorize index (idempotent)
         run: |
-          output=$(npx wrangler vectorize create twinflare-index \
-            --dimensions=768 \
+          output=$(npx wrangler vectorize create twinflare-vectorize-index \
+            --dimensions=1024 \
             --metric=cosine 2>&1) \
             || echo "$output" | grep -qiE "already exist|duplicate_name|duplicate" \
             || { echo "$output"; exit 1; }
@@ -37,7 +37,7 @@ jobs:
 
       - name: Create Vectorize metadata index for 'type' field (idempotent)
         run: |
-          output=$(npx wrangler vectorize create-metadata-index twinflare-index \
+          output=$(npx wrangler vectorize create-metadata-index twinflare-vectorize-index \
             --property-name=type --type=string 2>&1)
           exit_code=$?
           echo "$output"
