@@ -20,7 +20,7 @@ if (!fs.existsSync(CONFIG_FILE)) {
 const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
 const persona = config.persona ?? {}
 
-const required = ['name', 'systemPrompt', 'provider', 'model']
+const required = ['name', 'systemPromptFile', 'provider', 'model']
 for (const key of required) {
   if (!persona[key]) {
     console.error(`ERROR: persona.${key} is required in ${CONFIG_FILE}`)
@@ -28,9 +28,16 @@ for (const key of required) {
   }
 }
 
+const systemPromptPath = persona.systemPromptFile
+if (!fs.existsSync(systemPromptPath)) {
+  console.error(`ERROR: systemPromptFile not found: ${systemPromptPath}`)
+  process.exit(1)
+}
+const systemPrompt = fs.readFileSync(systemPromptPath, 'utf8').trim()
+
 const newVars = `[vars]
 PERSONA_NAME = ${JSON.stringify(persona.name)}
-PERSONA_SYSTEM_PROMPT = ${JSON.stringify(persona.systemPrompt)}
+PERSONA_SYSTEM_PROMPT = ${JSON.stringify(systemPrompt)}
 PERSONA_PROVIDER = ${JSON.stringify(persona.provider)}
 PERSONA_MODEL = ${JSON.stringify(persona.model)}
 PERSONA_TOP_K = ${JSON.stringify(String(persona.topK ?? 5))}

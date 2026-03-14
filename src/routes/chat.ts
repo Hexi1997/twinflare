@@ -41,7 +41,7 @@ chat.post('/', publicAuth, async c => {
   }
 
   const contextBlock = contextChunks.length > 0
-    ? `\n\n## Relevant Knowledge\n\n${contextChunks.join('\n\n---\n\n')}`
+    ? `\n\n# Relevant Knowledge\n\n${contextChunks.join('\n\n---\n\n')}`
     : ''
 
   const systemPrompt = `${c.env.PERSONA_SYSTEM_PROMPT}${contextBlock}`
