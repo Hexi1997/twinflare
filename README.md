@@ -18,10 +18,16 @@ GitHub Repo (docs/*.md + twinflare.config.json)
     ├─ Job 1: wrangler deploy (Worker + secrets + Vectorize)
     └─ Job 2: 切片 → CF Workers AI REST API Embedding → CF Vectorize REST API
                                         ↓
-                            外部应用 → /api/chat → RAG → Claude / GPT / Gemini / OpenRouter / Workers AI
+                            外部应用 → /api/chat
+                                        │
+                                   1. 向量检索（bge-m3 embedding → Vectorize topK×2 候选）
+                                   2. Rerank 精排（bge-reranker-base 交叉编码评分）
+                                   3. 取 Top-K 注入 System Prompt → LLM 生成回答
+                                        │
+                                   Claude / GPT / Gemini / OpenRouter / Workers AI
 ```
 
-**用到的 Cloudflare 服务**：Workers · Vectorize · Workers AI（Embedding 固定使用 `@cf/baai/bge-m3`）
+**用到的 Cloudflare 服务**：Workers · Vectorize · Workers AI（Embedding `@cf/baai/bge-m3`，Reranker `@cf/baai/bge-reranker-base`）
 
 ---
 
