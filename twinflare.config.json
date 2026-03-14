@@ -8,6 +8,7 @@
     "temperature": 0.7
   },
   "embedding": {
-    "model": "@cf/baai/bge-m3"
+    "model": "@cf/baai/bge-m3",
+    "batchSize": 50
   }
 }

@@ -38,7 +38,8 @@ const FORCE_FULL_SYNC = process.env.FORCE_FULL_SYNC === 'true'
 const DOCS_DIR = 'docs'
 
 const EMBEDDING_MODEL = embeddingConfig.model
-const EMBEDDING_BATCH_SIZE = 50
+/** Conservative default: doc only guarantees maxItems=100; total token limit per request is unspecified, so smaller batches avoid errors when chunks are long. */
+const EMBEDDING_BATCH_SIZE = embeddingConfig.batchSize
 const CF_API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}`
 
 if (!ACCOUNT_ID) {
