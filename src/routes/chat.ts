@@ -52,7 +52,7 @@ chat.post('/', publicAuth, async c => {
       model,
       system: systemPrompt,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
-      temperature,
+      temperature
     })
 
     return result.toTextStreamResponse({
